@@ -1,0 +1,170 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2022_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{braket}
+
+
+\title{A machine learning method to scale tight binding approximation}
+
+\author{Antiquus S.~Hippocampus, Natalia Cerebro \& Amelie P. Amygdale \thanks{ Use footnote for providing further information
+about author (webpage, alternative address)---\emph{not} for acknowledging
+funding agencies.  Funding acknowledgements go at the end of the paper.} \\
+Department of Computer Science\\
+Cranberry-Lemon University\\
+Pittsburgh, PA 15213, USA \\
+\texttt{\{hippo,brain,jen\}@cs.cranberry-lemon.edu} \\
+\And
+Ji Q. Ren \& Yevgeny LeNet \\
+Department of Computational Neuroscience \\
+University of the Witwatersrand \\
+Joburg, South Africa \\
+\texttt{\{robot,net\}@wits.ac.za} \\
+\AND
+Coauthor \\
+Affiliation \\
+Address \\
+\texttt{email}
+}
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+%\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Tight binding model is difficult to scale to large systems since the computation complexity
+increases linearly with respect to primitive cell size. This paper proposes a machine learning
+based mehtod to significantly reduce the computational cost of TB parameter calculation.
+We build a model that can learn from pre-calculated ab-initio bandstructures, and then predict
+the hopping integrals based on the local environment(neighborhood) of each atom.
+\end{abstract}
+
+\section{Formulation of the Problem}
+
+Tight binding approximation uses a set of localized atomical orbitals to form the Hilbert space
+of a periodic system. TB orbitals are defined as:
+
+\begin{equation}
+\phi_{\bold{R}j}(\bold{r}) = \phi_j(\bold{r}-\bold{R}) 
+= \varphi_{\mu\alpha}(\bold{r}-\bold{R}-t_{\mu}),
+\end{equation}
+
+where R represents the coordinates of cell, and $j$ represents site $j$ in cell R.
+This basis is assumed to be orthonormal, and the matrix elements of the Hamiltonian are:
+
+\begin{equation}
+H_{ij}(\bold{R}) = \bra{\phi_{\bold{R\prime}i}}H\ket{\phi_{\bold{R\prime}+\bold{R},j}}
+= \bra{\phi_{\bold{0}i}}H\ket{\phi_{\bold{R},j}},
+\end{equation}
+
+here we assume that $H_{ij}(\bold{R})$ decays rapidly with increasing R. In a peroidic system with
+infinite cells, the Hamiltonian matrix will have infinite dimensions. Even large R are ignored, it still
+have infinite number of site pairs denoted as $H_{ij}(\bold{R\prime}, \bold{R})$. To resolve
+the infinite dimension problem, we introduce the Bloch-like basis functions:
+
+\begin{equation}
+\chi^k_j(\bold{r})=\sum_R e^{ik\cdot(\bold{R}+\bold{t}_j)}\phi_j(\bold{r}-\bold{R}),
+\end{equation}
+
+which we write henceforth in a bra-ket language as
+
+\begin{equation}
+\ket{\chi^k_j} = \sum_R  e^{ik\cdot(\bold{R}+\bold{t}_j)} \ket{\phi_{\bold{R}j}}.
+\end{equation}
+
+The corresponding k-dependent Hamiltonian matrix is constructed as:
+
+\begin{equation}
+H^k_{ij} = \bra{\chi^k_i}H\ket{\chi^k_j} = \sum_R  e^{ik\cdot(\bold{R}+
+\bold{t}_j-\bold{t}_i)} H_{ij}(\bold{R}).
+\end{equation}
+
+The secular equation to be solved is
+
+\begin{equation}
+\mathcal{H}_\bold{k}\cdot\mathcal{C}_{n\bold{k}}
+=E_{n\bold{k}}\mathcal{C}_{n\bold{k}}.
+\end{equation}
+
+n denotes the index of eigenvalue. The rest of this paper will focus on the determination of $\mathcal{H}_k$.
+
+\section{Method}
+
+\subsection{Trainable Parameters and Sample Strategy}
+
+We denote the Hamiltonian matrix as $\mathcal{H}_k$, which contains the trainable parameter
+set $\mathcal{P}$. $\mathcal{P}$ includes the onsite energies $\mathcal{E}$ and hopping energies
+$\mathcal{T}$. The number of parameters in $\mathcal{E}$ depends on the number of sites in the
+primitive cell and number of orbitals on each site. The number of parameters in $\mathcal{T}$, 
+however, depends on structure and sites numbers and orbital numbers. As stated in the previous section,
+hopping energy $H_{ij}(\bold{R})$ decays rapidly with increasing R, therefore we use a cutoff radius
+$\hat{r}$ to confine the size of parameter set.
+
+After the decision of trainable parameters, we describe the strategy to generate samples. We denote
+the discretized first Brillouin Zone as $\mathcal{B}$, each k-point in $\mathcal{B}$ is a sample.
+The energies for each k-point can either be extracted from a database or calculated from the ab-initio
+methods in advance. Here we denote the sample set as $\mathcal{S}$, for simplicity, only one structure
+is considered in every training process. Since the importance of different areas is different in the Brillouin
+Zone, we will use a structure-specific probability map to ensure the model focus on important areas.
+
+\subsection{Algorithm}
+
+\begin{itemize}
+\item Step1: Given structure, sites, and orbitals, decide trainable parameters.
+\item Step2: Calculate the Brillouin Zone, select a sample strategy.
+\item Step3: Solve the Hamiltonian, get eigenvalues as functions of trainable parameters. 
+\item Step4: Train the model using classical machine learning procedure.
+\end{itemize}
+
+\subsection{Generalize by adding hidden layers}
+
+Previous analysis can only be used to determine a specific Hamiltonian for the target structure. However,
+in real world scenarios, it will be beneficial if we can readily determine the tight binding Hamiltonian
+for any structure. Theoretically, the electronic structre is determined by the structure information. Onsite
+energies $\mathcal{E}$ and hopping energies $\mathcal{T}$ are thus solely dependent on the interested
+structure. In addition to the fitting approach, we reformulate this problem into a learning problem. We define
+a model that can learn how to decide $\mathcal{H}_k$ from a given structure.
+
+\begin{equation}
+\mathcal{E}, \mathcal{T} = f(Structure)
+\end{equation}
+
+Once we have $\mathcal{E}$ and $\mathcal{T}$, we can solve downstream problems using the Hamiltonian
+$\mathcal{H}_k$.
+
+\section{Default Notation}
+
+In an attempt to encourage standardized notation, we have included the
+notation file from the textbook, \textit{Deep Learning}
+\cite{goodfellow2016deep} available at
+\url{https://github.com/goodfeli/dlbook_notation/}.  Use of this style
+is not required and can be disabled by commenting out
+\texttt{math\_commands.tex}.
+
+\subsubsection*{Author Contributions}
+If you'd like to, you may include  a section for author contributions as is done
+in many journals. This is optional and at the discretion of the authors.
+
+\subsubsection*{Acknowledgments}
+Use unnumbered third level headings for the acknowledgments. All
+acknowledgments, including those to funding agencies, go at the end of the paper.
+
+
+\bibliography{iclr2022_conference}
+\bibliographystyle{iclr2022_conference}
+
+\appendix
+\section{Appendix}
+You may include other additional sections here.
+
+\end{document}

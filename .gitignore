@@ -1,0 +1,7 @@
+.idea
+__pycache__
+*.pdf
+*.png
+*.synctex.gz
+bandstructure
+run
